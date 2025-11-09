@@ -14,6 +14,7 @@ export const authAPI = {
   login: (username: string, password: string) => api.post('auth/login', { username, password }),
   register: (data: any) => api.post('auth/register', data),
 };
+console.log("DEPLOYED API BASEURL:", API_URL);
 
 // Request interceptor - add token
 api.interceptors.request.use((config) => {
@@ -130,6 +131,7 @@ export const rackAPI = {
   toggleStatus: (id: number) => api.patch(`racks/${id}/toggle`)
 };
 export default api;
+
 
 
 
