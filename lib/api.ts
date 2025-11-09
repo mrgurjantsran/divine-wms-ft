@@ -76,6 +76,7 @@ export const masterDataAPI = {
 };
 
 // Inbound API
+// Inbound API
 export const inboundAPI = {
   createSingle: (data: any) => api.post('inbound', data),
   getMasterDataByWSN: (wsn: string) => api.get(`inbound/master-data/${wsn}`),
@@ -84,32 +85,22 @@ export const inboundAPI = {
   }),
   
   multiEntry: (data: any) => api.post('inbound/multi-entry', data),
-  // getAll: (page: number, limit: number, filters: any) => {
-  //   const params = new URLSearchParams({
-  //     page: page.toString(),
-  //     limit: limit.toString(),
-  //     ...(filters.warehouseId && { warehouseId: filters.warehouseId.toString() }),
-  //     ...(filters.search && { search: filters.search }),
-  //     ...(filters.brand && { brand: filters.brand }),
-  //     ...(filters.category && { category: filters.category })
-  //   });
-  //   return api.get(`/inbound?${params}`);
-  // },
-  getWarehouseRacks: (warehouseId: number) => api.get(`/inbound/racks/${warehouseId}`),
+  
+  getWarehouseRacks: (warehouseId: number) => api.get(`inbound/racks/${warehouseId}`),
   getBatches: (warehouseId?: string) => {
     const params = warehouseId ? `?warehouse_id=${warehouseId}` : '';
-    return api.get(`/inbound/batches${params}`);
+    return api.get(`inbound/batches${params}`);
   },
-  deleteBatch: (batchId: string) => api.delete(`/inbound/batches/${batchId}`),
+  deleteBatch: (batchId: string) => api.delete(`inbound/batches/${batchId}`),
 
   getBrands: (warehouseId?: number) => 
-    api.get('/inbound/brands', { params: { warehouse_id: warehouseId } }),
+    api.get('inbound/brands', { params: { warehouse_id: warehouseId } }),
   
   getCategories: (warehouseId?: number) => 
-    api.get('/inbound/categories', { params: { warehouse_id: warehouseId } }),
+    api.get('inbound/categories', { params: { warehouse_id: warehouseId } }),
   
   getAll: (page: number, limit: number, filters?: any) => 
-    api.get('/inbound', { 
+    api.get('inbound', { 
       params: { 
         page, 
         limit, 
@@ -124,27 +115,22 @@ export const inboundAPI = {
     }),
 };
 
-
-
-
 // Racks API
 export const rackAPI = {
   getAll: (warehouseId?: number) => {
     const params = warehouseId ? `?warehouse_id=${warehouseId}` : '';
-    return api.get(`/racks${params}`);
+    return api.get(`racks${params}`);
   },
-  create: (data: any) => api.post('/racks', data),
-  bulkUpload: (formData: FormData) => api.post('/racks/bulk-upload', formData, {
+  create: (data: any) => api.post('racks', data),
+  bulkUpload: (formData: FormData) => api.post('racks/bulk-upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  update: (id: number, data: any) => api.put(`/racks/${id}`, data),
-  delete: (id: number) => api.delete(`/racks/${id}`),
-  toggleStatus: (id: number) => api.patch(`/racks/${id}/toggle`)
+  update: (id: number, data: any) => api.put(`racks/${id}`, data),
+  delete: (id: number) => api.delete(`racks/${id}`),
+  toggleStatus: (id: number) => api.patch(`racks/${id}/toggle`)
 };
-
-
-
 export default api;
+
 
 
 
