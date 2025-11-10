@@ -21,6 +21,57 @@ import { masterDataAPI } from '@/lib/api';
 import AppLayout from '@/components/AppLayout';
 import * as XLSX from 'xlsx';
 
+
+// Helper function to safely format date
+const formatDate = (dateString: any, format: 'date' | 'datetime' = 'datetime'): string => {
+  if (!dateString || dateString === null || dateString === undefined) {
+    return '-';
+  }
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return '-';
+    }
+    
+    if (format === 'date') {
+      return date.toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    } else {
+      return date.toLocaleString('en-IN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  } catch (error) {
+    return '-';
+  }
+};
+
+// Helper function to safely format numbers
+const formatNumber = (value: any): string => {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  
+  try {
+    const num = parseInt(value);
+    if (isNaN(num)) {
+      return String(value);
+    }
+    return num.toLocaleString('en-IN');
+  } catch (error) {
+    return String(value);
+  }
+};
+
+
 // Memoized table row for performance
 const MasterDataRow = memo(({ 
   row, 
@@ -170,27 +221,30 @@ export default function MasterDataPage() {
     }
   }, []);
 
+  
+   const loadMasterData = async () => {
+  setLoading(true);
+  try {
+    const response = await masterDataAPI.getAll(page + 1, rowsPerPage);
+    
+    // Format dates on client to avoid hydration issues
+    const formattedData = (response.data.data || []).map((item: any) => ({
+      ...item,
+      invoice_date_display: formatDate(item.invoice_date, 'date'),
+      created_at_display: formatDate(item.created_at, 'datetime')
+    }));
+    
+    setMasterData(formattedData);
+    setTotalRecords(response.data.total || 0);
+  } catch (error) {
+    console.error('Load error:', error);
+    toast.error('Failed to load data');
+  } finally {
+    setLoading(false);
+  }
+ };
 
-  const loadMasterData = async () => {
-    setLoading(true);
-    try {
-      const response = await masterDataAPI.getAll(page + 1, rowsPerPage);
-      
-      // Format dates on client to avoid hydration issues
-      const formattedData = (response.data.data || []).map((item: any) => ({
-        ...item,
-        invoice_date_display: item.invoice_date ? new Date(item.invoice_date).toLocaleDateString() : '-',
-        created_at_display: item.created_at ? new Date(item.created_at).toLocaleString() : '-'
-      }));
-      
-      setMasterData(formattedData);
-      setTotalRecords(response.data.total || 0);
-    } catch (error) {
-      toast.error('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
+   
 
   const loadBatches = async () => {
     try {
@@ -251,7 +305,7 @@ export default function MasterDataPage() {
           setUploadProgress(prev => ({ ...prev, show: false }));
           
           if (prog.status === 'completed') {
-            toast.success(`✓ Upload complete! ${prog.successCount.toLocaleString()} records added`, { duration: 5000 });
+            toast.success(`✓ Upload complete! ${formatNumber(prog.successCount)} records added`, { duration: 5000 });
             loadMasterData();
             loadBatches();
           } else {
@@ -301,7 +355,8 @@ export default function MasterDataPage() {
         batchId: data.batchId
       });
 
-      toast.success(`Upload started! Processing ${data.totalRows.toLocaleString()} rows...`, { icon: '⏳' });
+      toast.success(`Upload started! Processing ${formatNumber(data.totalRows)} rows...`, { icon: '⏳' });
+
       setSelectedFile(null);
       setUploadDialogOpen(false);
 
@@ -375,7 +430,8 @@ export default function MasterDataPage() {
         data = result.data || [];
         
         // Update toast with id
-        toast.loading(`Processing ${data.length.toLocaleString()} records...`, { id: exportToast });
+        toast.loading(`Processing ${formatNumber(data.length)} records...`, { id: exportToast });
+
 
       } else {
         data = [...masterData];
@@ -427,7 +483,8 @@ export default function MasterDataPage() {
       
       // Dismiss loading toast and show success
       toast.dismiss(exportToast);
-      toast.success(`✓ Exported ${data.length.toLocaleString()} records successfully!`, { duration: 5000 });
+      toast.success(`✓ Exported ${formatNumber(data.length)} records successfully!`, { duration: 5000 });
+
       
       setExportDialogOpen(false);
       setExportBatch([]);
@@ -468,8 +525,10 @@ export default function MasterDataPage() {
           <Typography variant="h6" fontWeight="bold" sx={{ flexGrow: 1 }}>
             📊 Master Data Management
           </Typography>
-          <Chip label={`${totalRecords.toLocaleString()} Records`} color="primary" size="small" sx={{ mr: 1 }} />
-          <Chip label={`${batches.length} Batches`} color="success" size="small" sx={{ mr: 2 }} />
+          <Chip label={`${formatNumber(totalRecords)} Records`} color="primary" size="small" sx={{ mr: 1 }} />
+          <Chip label={`${formatNumber(batches.length)} Batches`} color="success" size="small" sx={{ mr: 2 }} />
+
+
           <Button color="error" variant="outlined" startIcon={<LogoutIcon />} onClick={handleLogout} size="small">
             Logout
           </Button>
@@ -482,11 +541,12 @@ export default function MasterDataPage() {
           <Stack spacing={1}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="body2" fontWeight="bold">
-                ⏳ Uploading: {uploadProgress.processed.toLocaleString()} / {uploadProgress.total.toLocaleString()} rows
+                ⏳ Uploading: {formatNumber(uploadProgress.processed)} / {formatNumber(uploadProgress.total)} rows
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Chip label={`✓ ${uploadProgress.successCount.toLocaleString()}`} color="success" size="small" />
-                <Chip label={`✗ ${uploadProgress.errorCount.toLocaleString()}`} color="error" size="small" />
+                <Chip label={`✓ ${formatNumber(uploadProgress.successCount)}`} color="success" size="small" />
+                <Chip label={`✗ ${formatNumber(uploadProgress.errorCount)}`} color="error" size="small" />
+
                 <IconButton size="small" onClick={handleCancelUpload} color="error">
                   <CancelIcon fontSize="small" />
                 </IconButton>
@@ -592,8 +652,9 @@ export default function MasterDataPage() {
                 rowsPerPageOptions={[100, 500, 1000]} // Removed "All" option
                 labelRowsPerPage="Rows per page:"
                 labelDisplayedRows={({ from, to, count }) => 
-                  `${from.toLocaleString()}-${to.toLocaleString()} of ${count !== -1 ? count.toLocaleString() : 'more than ' + to}`
-                }
+                  `${formatNumber(from)}-${formatNumber(to)} of ${count !== -1 ? formatNumber(count) : 'more than ' + formatNumber(to)}`
+                 }
+
               />
 
 
@@ -620,7 +681,7 @@ export default function MasterDataPage() {
                   {batches.map(batch => (
                     <TableRow key={batch.batch_id} hover>
                       <TableCell sx={{ fontWeight: 'bold' }}>{batch.batch_id}</TableCell>
-                      <TableCell>{batch.count.toLocaleString()}</TableCell>
+                     <TableCell>{formatNumber(batch.count)}</TableCell>
                       <TableCell>{new Date(batch.lastupdated).toLocaleString()}</TableCell>
                       <TableCell align="center">
                         <IconButton size="small" color="error" onClick={() => handleDeleteBatch(batch.batch_id)}>
@@ -715,7 +776,8 @@ export default function MasterDataPage() {
                 {batches.map(b => (
                   <MenuItem key={b.batch_id} value={b.batch_id}>
                     <Checkbox checked={exportBatch.indexOf(b.batch_id) > -1} />
-                    <ListItemText primary={`${b.batch_id} (${b.count.toLocaleString()} records)`} />
+                    <ListItemText primary={`${b.batch_id} (${formatNumber(b.count)} records)`} />
+
                   </MenuItem>
                 ))}
               </Select>
