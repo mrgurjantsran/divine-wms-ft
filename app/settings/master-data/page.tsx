@@ -1,7 +1,6 @@
 'use client';
-import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 
-//import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box, Paper, Typography, Button, AppBar, Toolbar, Stack, Table,
@@ -21,8 +20,7 @@ import { masterDataAPI } from '@/lib/api';
 import AppLayout from '@/components/AppLayout';
 import * as XLSX from 'xlsx';
 
-
-// Helper function to safely format date
+// ✅ Helper function to safely format date
 const formatDate = (dateString: any, format: 'date' | 'datetime' = 'datetime'): string => {
   if (!dateString || dateString === null || dateString === undefined) {
     return '-';
@@ -54,7 +52,7 @@ const formatDate = (dateString: any, format: 'date' | 'datetime' = 'datetime'): 
   }
 };
 
-// Helper function to safely format numbers
+// ✅ Helper function to safely format numbers
 const formatNumber = (value: any): string => {
   if (value === null || value === undefined || value === '') {
     return '-';
@@ -71,7 +69,6 @@ const formatNumber = (value: any): string => {
   }
 };
 
-
 // Memoized table row for performance
 const MasterDataRow = memo(({ 
   row, 
@@ -83,7 +80,7 @@ const MasterDataRow = memo(({
   return (
     <TableRow hover>
       <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
-      {columnVisibility.wsn && <TableCell sx={{ fontWeight: 'bold' }}>{row.wsn}</TableCell>}
+      {columnVisibility.wsn && <TableCell sx={{ fontWeight: 'bold' }}>{row.wsn || '-'}</TableCell>}
       {columnVisibility.wid && <TableCell>{row.wid || '-'}</TableCell>}
       {columnVisibility.fsn && <TableCell>{row.fsn || '-'}</TableCell>}
       {columnVisibility.order_id && <TableCell>{row.order_id || '-'}</TableCell>}
@@ -195,13 +192,12 @@ export default function MasterDataPage() {
     };
   }, [router]);
 
-    // Data loading effect - with tab awareness
+  // Data loading effect - with tab awareness
   useEffect(() => {
-    if (user && tabValue === 0) { // Only load when on List tab
+    if (user && tabValue === 0) {
       loadMasterData();
     }
   }, [page, rowsPerPage, user, tabValue]);
-
 
   // Initial load for batches and active uploads
   useEffect(() => {
@@ -211,8 +207,7 @@ export default function MasterDataPage() {
     }
   }, [user]);
 
-
-    // Force reset if rowsPerPage is too large
+  // Force reset if rowsPerPage is too large
   useEffect(() => {
     if (rowsPerPage > 1000) {
       setRowsPerPage(100);
@@ -221,37 +216,39 @@ export default function MasterDataPage() {
     }
   }, []);
 
-  
-   const loadMasterData = async () => {
-  setLoading(true);
-  try {
-    const response = await masterDataAPI.getAll(page + 1, rowsPerPage);
-    
-    // Format dates on client to avoid hydration issues
-    const formattedData = (response.data.data || []).map((item: any) => ({
-      ...item,
-      invoice_date_display: formatDate(item.invoice_date, 'date'),
-      created_at_display: formatDate(item.created_at, 'datetime')
-    }));
-    
-    setMasterData(formattedData);
-    setTotalRecords(response.data.total || 0);
-  } catch (error) {
-    console.error('Load error:', error);
-    toast.error('Failed to load data');
-  } finally {
-    setLoading(false);
-  }
- };
-
-   
+  const loadMasterData = async () => {
+    setLoading(true);
+    try {
+      const response = await masterDataAPI.getAll(page + 1, rowsPerPage);
+      
+      // Format dates on client to avoid hydration issues
+      const formattedData = (response.data.data || []).map((item: any) => ({
+        ...item,
+        invoice_date_display: formatDate(item.invoice_date, 'date'),
+        created_at_display: formatDate(item.created_at, 'datetime')
+      }));
+      
+      setMasterData(formattedData);
+      setTotalRecords(response.data.total || 0);
+    } catch (error) {
+      console.error('Load error:', error);
+      toast.error('Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadBatches = async () => {
     try {
       const response = await masterDataAPI.getBatches();
-      setBatches(response.data || []);
+      console.log('✅ Batches response:', response.data);
+      
+      // Ensure batches is always an array
+      const batchesArray = Array.isArray(response.data) ? response.data : [];
+      setBatches(batchesArray);
     } catch (error) {
-      console.error('Failed to load batches');
+      console.error('Failed to load batches:', error);
+      setBatches([]);
     }
   };
 
@@ -292,14 +289,16 @@ export default function MasterDataPage() {
         
         setUploadProgress(prev => ({
           ...prev,
-          processed: prog.processed,
-          successCount: prog.successCount,
-          errorCount: prog.errorCount
+          processed: prog.processed || 0,
+          successCount: prog.successCount || 0,
+          errorCount: prog.errorCount || 0,
+          total: prog.total || prev.total
         }));
 
         if (prog.status === 'completed' || prog.status === 'failed') {
           if (progressIntervalRef.current) {
             clearInterval(progressIntervalRef.current);
+            progressIntervalRef.current = null;
           }
           
           setUploadProgress(prev => ({ ...prev, show: false }));
@@ -316,6 +315,7 @@ export default function MasterDataPage() {
         console.error('Progress poll error:', err);
         if (progressIntervalRef.current) {
           clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
         }
       }
     }, 2000);
@@ -349,21 +349,21 @@ export default function MasterDataPage() {
         show: true,
         jobId: data.jobId,
         processed: 0,
-        total: data.totalRows,
+        total: data.totalRows || 0,
         successCount: 0,
         errorCount: 0,
         batchId: data.batchId
       });
 
       toast.success(`Upload started! Processing ${formatNumber(data.totalRows)} rows...`, { icon: '⏳' });
-
       setSelectedFile(null);
       setUploadDialogOpen(false);
 
       startProgressPolling(data.jobId);
       
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Upload failed');
     } finally {
       setLoading(false);
     }
@@ -376,10 +376,12 @@ export default function MasterDataPage() {
       await masterDataAPI.cancelUpload(uploadProgress.jobId);
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
       }
       setUploadProgress(prev => ({ ...prev, show: false }));
       toast.success('Upload cancelled');
     } catch (error) {
+      console.error('Cancel error:', error);
       toast.error('Failed to cancel');
     }
   };
@@ -393,6 +395,7 @@ export default function MasterDataPage() {
       loadMasterData();
       loadBatches();
     } catch (error) {
+      console.error('Delete error:', error);
       toast.error('Failed to delete');
     }
   };
@@ -428,17 +431,13 @@ export default function MasterDataPage() {
         
         const result = await response.json();
         data = result.data || [];
-        
-        // Update toast with id
-        toast.loading(`Processing ${formatNumber(data.length)} records...`, { id: exportToast });
-
 
       } else {
         data = [...masterData];
       }
 
       if (data.length === 0) {
-        toast.dismiss(exportToast);
+        if (exportToast) toast.dismiss(exportToast);
         toast.error('No data to export');
         setLoading(false);
         return;
@@ -481,10 +480,8 @@ export default function MasterDataPage() {
       
       XLSX.writeFile(wb, filename);
       
-      // Dismiss loading toast and show success
-      toast.dismiss(exportToast);
+      if (exportToast) toast.dismiss(exportToast);
       toast.success(`✓ Exported ${formatNumber(data.length)} records successfully!`, { duration: 5000 });
-
       
       setExportDialogOpen(false);
       setExportBatch([]);
@@ -520,15 +517,13 @@ export default function MasterDataPage() {
       <Toaster position="top-center" />
 
       {/* Header */}
-      <AppBar position="static" elevation={0} sx={{ bgcolor: 'white', color: 'text.primary' }}>
+      <AppBar position="static" elevation={0} sx={{ bgcolor: 'white', color: 'text.primary', mb: 3 }}>
         <Toolbar>
           <Typography variant="h6" fontWeight="bold" sx={{ flexGrow: 1 }}>
             📊 Master Data Management
           </Typography>
           <Chip label={`${formatNumber(totalRecords)} Records`} color="primary" size="small" sx={{ mr: 1 }} />
           <Chip label={`${formatNumber(batches.length)} Batches`} color="success" size="small" sx={{ mr: 2 }} />
-
-
           <Button color="error" variant="outlined" startIcon={<LogoutIcon />} onClick={handleLogout} size="small">
             Logout
           </Button>
@@ -546,7 +541,6 @@ export default function MasterDataPage() {
               <Stack direction="row" spacing={1} alignItems="center">
                 <Chip label={`✓ ${formatNumber(uploadProgress.successCount)}`} color="success" size="small" />
                 <Chip label={`✗ ${formatNumber(uploadProgress.errorCount)}`} color="error" size="small" />
-
                 <IconButton size="small" onClick={handleCancelUpload} color="error">
                   <CancelIcon fontSize="small" />
                 </IconButton>
@@ -636,7 +630,7 @@ export default function MasterDataPage() {
                 </Table>
               </TableContainer>
 
-                <TablePagination
+              <TablePagination
                 component="div"
                 count={totalRecords}
                 page={page}
@@ -644,21 +638,16 @@ export default function MasterDataPage() {
                 rowsPerPage={rowsPerPage}
                 onRowsPerPageChange={(e) => {
                   const value = parseInt(e.target.value, 10);
-                  // Hard limit to 1000 for performance
                   const safeValue = Math.min(value, 1000);
                   setRowsPerPage(safeValue);
                   setPage(0);
                 }}
-                rowsPerPageOptions={[100, 500, 1000]} // Removed "All" option
+                rowsPerPageOptions={[100, 500, 1000]}
                 labelRowsPerPage="Rows per page:"
                 labelDisplayedRows={({ from, to, count }) => 
                   `${formatNumber(from)}-${formatNumber(to)} of ${count !== -1 ? formatNumber(count) : 'more than ' + formatNumber(to)}`
-                 }
-
+                }
               />
-
-
-
             </Paper>
           </>
         ) : null}
@@ -678,20 +667,27 @@ export default function MasterDataPage() {
                 </TableHead>
 
                 <TableBody>
-                  {batches.map(batch => (
-                    <TableRow key={batch.batch_id} hover>
-                      <TableCell sx={{ fontWeight: 'bold' }}>{batch.batch_id}</TableCell>
-                     <TableCell>{formatNumber(batch.count)}</TableCell>
-                      <TableCell>{new Date(batch.lastupdated).toLocaleString()}</TableCell>
-                      <TableCell align="center">
-                        <IconButton size="small" color="error" onClick={() => handleDeleteBatch(batch.batch_id)}>
-                          <DeleteSweepIcon />
-                        </IconButton>
+                  {batches && batches.length > 0 ? (
+                    batches.map(batch => (
+                      <TableRow key={batch.batch_id} hover>
+                        <TableCell sx={{ fontWeight: 'bold' }}>{batch.batch_id || '-'}</TableCell>
+                        <TableCell>{batch.count ? formatNumber(batch.count) : '0'}</TableCell>
+                        <TableCell>{batch.lastupdated ? formatDate(batch.lastupdated, 'datetime') : '-'}</TableCell>
+                        <TableCell align="center">
+                          <IconButton size="small" color="error" onClick={() => handleDeleteBatch(batch.batch_id)}>
+                            <DeleteSweepIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                        No batches available
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
-
               </Table>
             </TableContainer>
           </Paper>
@@ -714,10 +710,10 @@ export default function MasterDataPage() {
         <DialogContent sx={{ p: 3 }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              Upload Excel file with all 20 columns. Files up to 500MB supported.
+              Upload Excel or CSV file with all 20 columns. Files up to 500MB supported.
             </Typography>
             <input
-              accept=".xlsx,.xls"
+              accept=".xlsx,.xls,.csv"
               style={{ display: 'none' }}
               id="file-upload"
               type="file"
@@ -773,13 +769,16 @@ export default function MasterDataPage() {
                   </Box>
                 )}
               >
-                {batches.map(b => (
-                  <MenuItem key={b.batch_id} value={b.batch_id}>
-                    <Checkbox checked={exportBatch.indexOf(b.batch_id) > -1} />
-                    <ListItemText primary={`${b.batch_id} (${formatNumber(b.count)} records)`} />
-
-                  </MenuItem>
-                ))}
+                {batches && batches.length > 0 ? (
+                  batches.map(b => (
+                    <MenuItem key={b.batch_id} value={b.batch_id}>
+                      <Checkbox checked={exportBatch.indexOf(b.batch_id) > -1} />
+                      <ListItemText primary={`${b.batch_id} (${formatNumber(b.count)} records)`} />
+                    </MenuItem>
+                  ))
+                ) : (
+                  <MenuItem disabled>No batches available</MenuItem>
+                )}
               </Select>
             </FormControl>
             
