@@ -468,8 +468,9 @@ export default function MasterDataPage() {
           <Typography variant="h6" fontWeight="bold" sx={{ flexGrow: 1 }}>
             📊 Master Data Management
           </Typography>
-          <Chip label={`${totalRecords.toLocaleString()} Records`} color="primary" size="small" sx={{ mr: 1 }} />
-          <Chip label={`${batches.length} Batches`} color="success" size="small" sx={{ mr: 2 }} />
+          <Chip label={`${(totalRecords || 0).toLocaleString()} Records`} color="primary" size="small" sx={{ mr: 1 }} />
+          <Chip label={`${(batches?.length || 0).toLocaleString()} Batches`} color="success" size="small" sx={{ mr: 2 }} />
+
           <Button color="error" variant="outlined" startIcon={<LogoutIcon />} onClick={handleLogout} size="small">
             Logout
           </Button>
@@ -591,12 +592,10 @@ export default function MasterDataPage() {
                 }}
                 rowsPerPageOptions={[100, 500, 1000]} // Removed "All" option
                 labelRowsPerPage="Rows per page:"
-                labelDisplayedRows={({ from, to, count }) => 
-                  `${from.toLocaleString()}-${to.toLocaleString()} of ${count !== -1 ? count.toLocaleString() : 'more than ' + to}`
-                }
-              />
-
-
+               labelDisplayedRows={({ from, to, count }) =>
+               `${(from || 0).toLocaleString()}-${(to || 0).toLocaleString()} of ${
+                 count && count !== -1 ? count.toLocaleString() : 'more than ' + (to || 0)}`}
+                />
 
             </Paper>
           </>
@@ -770,3 +769,4 @@ export default function MasterDataPage() {
     </AppLayout>
   );
 }
+
