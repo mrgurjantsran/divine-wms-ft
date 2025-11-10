@@ -20,7 +20,7 @@ import { masterDataAPI } from '@/lib/api';
 import AppLayout from '@/components/AppLayout';
 import * as XLSX from 'xlsx';
 
-// ✅ Helper function to safely format date
+// ✅ Helper function to safely format date - NO LOCALE (Hydration Safe)
 const formatDate = (dateString: any, format: 'date' | 'datetime' = 'datetime'): string => {
   if (!dateString || dateString === null || dateString === undefined) {
     return '-';
@@ -33,26 +33,24 @@ const formatDate = (dateString: any, format: 'date' | 'datetime' = 'datetime'): 
     }
     
     if (format === 'date') {
-      return date.toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
     } else {
-      return date.toLocaleString('en-IN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
     }
   } catch (error) {
     return '-';
   }
 };
 
-// ✅ Helper function to safely format numbers
+// ✅ Helper function to safely format numbers - NO LOCALE (Hydration Safe)
 const formatNumber = (value: any): string => {
   if (value === null || value === undefined || value === '') {
     return '-';
@@ -63,7 +61,8 @@ const formatNumber = (value: any): string => {
     if (isNaN(num)) {
       return String(value);
     }
-    return num.toLocaleString('en-IN');
+    // Simple comma formatting - no locale dependency
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   } catch (error) {
     return String(value);
   }
@@ -111,6 +110,7 @@ MasterDataRow.displayName = 'MasterDataRow';
 export default function MasterDataPage() {
   const router = useRouter();
   const progressIntervalRef = useRef<any>(null);
+  const [isClient, setIsClient] = useState(false);
   
   const [user, setUser] = useState<any>(null);
   const [masterData, setMasterData] = useState<any[]>([]);
@@ -173,6 +173,11 @@ export default function MasterDataPage() {
     { id: 'created_at', label: 'Created', width: 150 }
   ];
 
+  // ✅ CRITICAL: Set isClient on mount
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   // Initial setup
   useEffect(() => {
     const storedUser = getStoredUser();
@@ -194,18 +199,18 @@ export default function MasterDataPage() {
 
   // Data loading effect - with tab awareness
   useEffect(() => {
-    if (user && tabValue === 0) {
+    if (user && tabValue === 0 && isClient) {
       loadMasterData();
     }
-  }, [page, rowsPerPage, user, tabValue]);
+  }, [page, rowsPerPage, user, tabValue, isClient]);
 
   // Initial load for batches and active uploads
   useEffect(() => {
-    if (user) {
+    if (user && isClient) {
       loadBatches();
       checkActiveUploads();
     }
-  }, [user]);
+  }, [user, isClient]);
 
   // Force reset if rowsPerPage is too large
   useEffect(() => {
@@ -243,7 +248,6 @@ export default function MasterDataPage() {
       const response = await masterDataAPI.getBatches();
       console.log('✅ Batches response:', response.data);
       
-      // Ensure batches is always an array
       const batchesArray = Array.isArray(response.data) ? response.data : [];
       setBatches(batchesArray);
     } catch (error) {
@@ -511,6 +515,17 @@ export default function MasterDataPage() {
   const progressPercent = uploadProgress.total > 0 
     ? Math.round((uploadProgress.processed / uploadProgress.total) * 100) 
     : 0;
+
+  // Don't render dynamic content until hydration is complete
+  if (!isClient) {
+    return (
+      <AppLayout>
+        <Box sx={{ p: 2, textAlign: 'center' }}>
+          <CircularProgress />
+        </Box>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
