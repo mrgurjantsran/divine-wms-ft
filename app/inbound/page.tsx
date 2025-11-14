@@ -420,38 +420,30 @@ export default function InboundPage() {
   };
 
   const handleMultiSubmit = async () => {
-    const validEntries = multiRows.filter(row => row.wsn?.trim());
+  if (!activeWarehouse?.id) {
+    toast.error("Select warehouse first");
+    return;
+  }
 
-    if (validEntries.length === 0) {
-      toast.error('Add at least one WSN');
-      return;
-    }
+  const filtered = multiRows.filter((r: any) => r.wsn && r.wsn.trim() !== "");
 
-    setMultiLoading(true);
-    try {
-      const response = await inboundAPI.multiEntry({
-        entries: validEntries,
-        warehouse_id: activeWarehouse?.id
-      });
+  if (filtered.length === 0) {
+    toast.error("No valid WSN rows");
+    return;
+  }
 
-      toast.success(`✓ ${response.data.successCount} entries! Batch: ${response.data.batchId}`);
-      setMultiResults(response.data.results);
-      setMultiRows([{ 
-        wsn: '', 
-        inbound_date: commonDate, 
-        vehicle_no: commonVehicle, 
-        product_serial_number: '', 
-        rack_no: '', 
-        unload_remarks: '' 
-      }]);
+  try {
+    const res = await inboundAPI.multiEntry(filtered, activeWarehouse.id);
 
-      setTimeout(() => loadBatches(), 2000);
-    } catch (error: any) {
-      toast.error('Failed');
-    } finally {
-      setMultiLoading(false);
-    }
-  };
+    toast.success(`Saved ${res.data.successCount} rows`);
+    setMultiResults(res.data.results);
+
+  } catch (err: any) {
+    console.error(err);
+    toast.error("Multi entry failed");
+  }
+ };
+
 
   // ====== INBOUND LIST FUNCTIONS ======
   const loadInboundList = async () => {
