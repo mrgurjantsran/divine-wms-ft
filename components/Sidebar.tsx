@@ -196,7 +196,7 @@ export default function Sidebar() {
 
         {/* Settings Dropdown */}
         <AnimatePresence>
-          {settingsOpen && !collapsed && (
+          {settingsOpen && (!collapsed || isMobile) && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -342,3 +342,4 @@ export default function Sidebar() {
     </div>
   );
 }
+
