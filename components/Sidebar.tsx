@@ -63,8 +63,14 @@ export default function Sidebar() {
   };
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+  setMounted(true);
+}, []);
+
+useEffect(() => {
+  if (pathname.startsWith('/settings')) {
+    setSettingsOpen(true);
+  }
+}, [pathname]);
 
   return (
     <Drawer
@@ -185,3 +191,4 @@ export default function Sidebar() {
     </Drawer>
   );
 }
+
